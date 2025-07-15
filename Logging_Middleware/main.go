@@ -4,21 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 )
 
-type Request struct {
-	Email          string `json:"email"`
-	Name           string `json:"name"`
-	MobileNo       string `json:"mobileNo"`
-	GithubUsername string `json:"githubUsername"`
-	RollNo         string `json:"rollNo"`
-	AccessCode     string `json:"accessCode"`
-}
-
-type Registered struct {
+type AccessTokenRequest struct {
 	Email        string `json:"email"`
 	Name         string `json:"name"`
 	RollNo       string `json:"rollNo"`
@@ -27,46 +17,52 @@ type Registered struct {
 	ClientSecret string `json:"clientSecret"`
 }
 
-var regApi string = "http://20.244.56.144/evaluation-service/register"
+type ResponseAuth struct {
+	TokenType   string `json:"token_type"`
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+}
 
-func createRequestHeader() *Request {
-	return &Request{
-		Email:          "raghavendrabargali@gmail.com",
-		Name:           "Raghavendra Singh Bargali",
-		MobileNo:       "7505137114",
-		GithubUsername: "re1n-e",
-		RollNo:         "2294055",
-		AccessCode:     "QAhDUr",
+var authApi string = "http://20.244.56.144/evaluation-service/auth"
+
+func getAccessTokenRequest() *AccessTokenRequest {
+	return &AccessTokenRequest{
+		Email:        "raghavendrabargali@gmail.com",
+		Name:         "Raghavendra Singh Bargali",
+		RollNo:       "2294055",
+		AccessCode:   "QAhDUr",
+		ClientID:     "262ae3a5-1697-4f07-8d88-783f22f6ff71",
+		ClientSecret: "EwpXRmDMBPjTdXjX",
 	}
 }
 
-func get_registered_data() {
-	reqBody, err := json.Marshal(createRequestHeader())
+func getAccessToken() {
+	reqBody, err := json.Marshal(getAccessTokenRequest())
 	if err != nil {
-		log.Fatalf("Failed to marshal request: %v", err)
+		log.Fatalf("Error marshaling token request: %v", err)
 	}
 
-	resp, err := http.Post(regApi, "application/json", bytes.NewBuffer(reqBody))
+	resp, err := http.Post(authApi, "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
-		log.Fatalf("Failed to send POST request: %v", err)
+		log.Fatalf("HTTP request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		log.Fatalf("API error (%d): %s", resp.StatusCode, string(body))
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Auth API failed with status %d", resp.StatusCode)
 	}
 
-	var reg Registered
-	if err := json.NewDecoder(resp.Body).Decode(&reg); err != nil {
-		log.Fatalf("Failed to decode response: %v", err)
+	var token ResponseAuth
+	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
+		log.Fatalf("Failed to decode token response: %v", err)
 	}
 
-	// Print the important info
-	fmt.Println("ClientID:", reg.ClientID)
-	fmt.Println("ClientSecret:", reg.ClientSecret)
+	// Print the token
+	fmt.Println("Access Token:", token.AccessToken)
+	fmt.Println("Token Type:", token.TokenType)
+	fmt.Println("Expires In:", token.ExpiresIn)
 }
 
 func main() {
-	get_registered_data()
+	getAccessToken()
 }
